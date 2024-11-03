@@ -1,0 +1,72 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>Stock Symbols</h2>
+        <button class="btn btn-primary mb-3" onclick="refreshSymbols()">Refresh Symbol List</button>
+        
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for issuer in issuers %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ issuer.code }}</h5>
+                        <p class="card-text">{{ issuer.name }}</p>
+                        <p class="card-text"><small class="text-muted">Last updated: {{ issuer.last_updated|default:"Never" }}</small></p>
+                        <a href="{% url 'stock_detail' issuer.code %}" class="btn btn-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <p>No symbols found. Click "Refresh Symbol List" to fetch symbols.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshSymbols() {
+    if (confirm('Refresh symbol list from MSE?')) {
+        fetch('/api/fetch-data/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                command: 'get_all_symbols'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %} 
