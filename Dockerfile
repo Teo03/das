@@ -1,9 +1,9 @@
-FROM --platform=$BUILDPLATFORM python:3.11-slim
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=stock_market.settings \
-    PORT=8000 \
+    PORT=80 \
     PATH="/home/appuser/.local/bin:$PATH"
 
 WORKDIR /app
@@ -45,7 +45,7 @@ USER appuser
 # Install Python dependencies
 COPY --chown=appuser:appuser requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt \
-    && pip install --user --no-cache-dir gunicorn
+    && pip install --user --no-cache-dir gunicorn dj-database-url psycopg2-binary
 
 # Copy project files
 COPY --chown=appuser:appuser . .
@@ -54,11 +54,8 @@ COPY --chown=appuser:appuser . .
 RUN mkdir -p staticfiles media \
     && chmod -R 755 staticfiles media
 
-# Collect static files
+# Remove the migrate command from here since it should run after environment is set up
 RUN python manage.py collectstatic --noinput
-RUN python manage.py migrate
-
 EXPOSE $PORT
 
-# Use full path to gunicorn
-CMD ["gunicorn", "--config", "gunicorn-cfg.py", "stock_market.wsgi:application"]
+CMD python manage.py migrate && gunicorn --config gunicorn-cfg.py stock_market.wsgi:application
