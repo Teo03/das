@@ -134,3 +134,5 @@ dmypy.json
 node_modules
 /static/
 data
+staticfiles
+.DS_Store

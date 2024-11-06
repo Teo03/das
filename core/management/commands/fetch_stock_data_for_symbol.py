@@ -16,22 +16,30 @@ class Command(BaseCommand):
         parser.add_argument(
             '--from-date',
             type=str,
-            help='Start date in format YYYY-MM-DD',
+            help='Start date in format YYYY-MM-DD or MM/DD/YYYY',
             required=True
         )
         parser.add_argument(
             '--to-date',
             type=str,
-            help='End date in format YYYY-MM-DD',
+            help='End date in format YYYY-MM-DD or MM/DD/YYYY',
             required=True
         )
+        parser.add_argument('--quiet', action='store_true', help='Suppress output')
 
     def handle(self, *args, **options):
         try:
             issuer = Issuer.objects.get(code=options['symbol'])
             
-            from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
-            to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+            from_date_str = options['from_date']
+            to_date_str = options['to_date']
+            
+            try:
+                from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+                to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                from_date = datetime.strptime(from_date_str, '%m/%d/%Y').date()
+                to_date = datetime.strptime(to_date_str, '%m/%d/%Y').date()
             
             input_data = {
                 options['symbol']: {
@@ -45,12 +53,13 @@ class Command(BaseCommand):
             
             result = pipeline.execute(input_data)
             
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully fetched data for {options["symbol"]}\n'
-                    f'From: {from_date} To: {to_date}'
+            if not options.get('quiet'):
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'Successfully fetched data for {options["symbol"]}\n'
+                        f'From: {from_date} To: {to_date}'
+                    )
                 )
-            )
             
         except Issuer.DoesNotExist:
             self.stdout.write(

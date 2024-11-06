@@ -18,7 +18,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">&nbsp;</label>
-                        <button class="btn btn-primary d-block" id="fetchDataBtn">Fetch Data</button>
+                        <button class="btn btn-primary d-block" id="fetchDataBtn" data-symbol="{{ issuer.code }}">Fetch Data</button>
                     </div>
                 </div>
             </div>
@@ -30,37 +30,73 @@
                 <h5 class="card-title">Latest Price ({{ last_price.date }})</h5>
                 <div class="row">
                     <div class="col-md-3">
-                        <p>Last Trade: {{ last_price.last_trade_price }}</p>
+                        <p data-price="last_trade">Last Trade: {{ last_price.last_trade_price }}</p>
                     </div>
                     <div class="col-md-3">
-                        <p>High: {{ last_price.max_price }}</p>
+                        <p data-price="high">High: {{ last_price.max_price }}</p>
                     </div>
                     <div class="col-md-3">
-                        <p>Low: {{ last_price.min_price }}</p>
+                        <p data-price="low">Low: {{ last_price.min_price }}</p>
                     </div>
                     <div class="col-md-3">
-                        <p>Average: {{ last_price.avg_price }}</p>
+                        <p data-price="avg">Average: {{ last_price.avg_price }}</p>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-4">
-                        <p>Change: {{ last_price.price_change }}%</p>
+                        <p data-price="change">Change: {{ last_price.price_change }}%</p>
                     </div>
                     <div class="col-md-4">
-                        <p>Volume: {{ last_price.volume }}</p>
+                        <p data-price="volume">Volume: {{ last_price.volume }}</p>
                     </div>
                     <div class="col-md-4">
-                        <p>Turnover: {{ last_price.total_turnover }}</p>
+                        <p data-price="turnover">Turnover: {{ last_price.total_turnover }}</p>
                     </div>
                 </div>
             </div>
         </div>
         {% endif %}
 
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Price History</h5>
-                <canvas id="priceChart"></canvas>
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Price History</h5>
+                        <div style="height: 400px;">
+                            <canvas id="priceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Volume History</h5>
+                        <div style="height: 400px;">
+                            <canvas id="volumeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Price Range (High/Low/Avg)</h5>
+                        <div style="height: 400px;">
+                            <canvas id="priceRangeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Daily Price Change %</h5>
+                        <div style="height: 400px;">
+                            <canvas id="priceChangeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -70,34 +106,145 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('priceChart').getContext('2d');
+    let charts = {};
     const prices = {{ prices|safe }};
     
-    const dates = prices.map(p => p.date).reverse();
-    const closePrices = prices.map(p => p.close_price).reverse();
-    
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dates,
-            datasets: [{
-                label: 'Last Trade Price',
-                data: closePrices,
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            }]
-        },
-        options: {
+    function createChart(ctx, config) {
+        if (charts[ctx.canvas.id]) {
+            charts[ctx.canvas.id].destroy();
+        }
+        charts[ctx.canvas.id] = new Chart(ctx, config);
+    }
+
+    function updateCharts(data) {
+        const dates = data.map(p => p.date).reverse();
+        
+        // Price Chart
+        createChart(document.getElementById('priceChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Last Trade Price',
+                    data: data.map(p => p.close_price).reverse(),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    pointRadius: 1,
+                    borderWidth: 1
+                }]
+            },
+            options: getChartOptions('Price (MKD)')
+        });
+
+        // Volume Chart
+        createChart(document.getElementById('volumeChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Volume',
+                    data: data.map(p => p.volume).reverse(),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }]
+            },
+            options: getChartOptions('Volume')
+        });
+
+        // Price Range Chart
+        createChart(document.getElementById('priceRangeChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'High',
+                    data: data.map(p => p.max_price).reverse(),
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1,
+                    pointRadius: 0,
+                    borderWidth: 1
+                },
+                {
+                    label: 'Low',
+                    data: data.map(p => p.min_price).reverse(),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    pointRadius: 0,
+                    borderWidth: 1
+                },
+                {
+                    label: 'Average',
+                    data: data.map(p => p.avg_price).reverse(),
+                    borderColor: 'rgb(255, 205, 86)',
+                    tension: 0.1,
+                    pointRadius: 0,
+                    borderWidth: 1
+                }]
+            },
+            options: getChartOptions('Price (MKD)')
+        });
+
+        // Price Change Chart
+        createChart(document.getElementById('priceChangeChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Price Change %',
+                    data: data.map(p => p.price_change).reverse(),
+                    backgroundColor: data.map(p => p.price_change >= 0 ? 
+                        'rgba(75, 192, 92, 0.5)' : 'rgba(255, 99, 132, 0.5)'),
+                    borderColor: data.map(p => p.price_change >= 0 ? 
+                        'rgb(75, 192, 92)' : 'rgb(255, 99, 132)'),
+                    borderWidth: 1
+                }]
+            },
+            options: getChartOptions('Change %')
+        });
+    }
+
+    function getChartOptions(yAxisLabel) {
+        return {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: false
+                    beginAtZero: false,
+                    ticks: {
+                        maxTicksLimit: 8
+                    },
+                    title: {
+                        display: true,
+                        text: yAxisLabel
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 10,
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
                 }
             }
-        }
-    });
+        };
+    }
     
-    document.getElementById('fetchDataBtn').addEventListener('click', function() {
+    // Initial chart update
+    updateCharts(prices);
+    
+    // Fetch data button handler
+    document.getElementById('fetchDataBtn').addEventListener('click', async function() {
         const fromDate = document.getElementById('fromDate').value;
         const toDate = document.getElementById('toDate').value;
         
@@ -105,27 +252,63 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please select both dates');
             return;
         }
-        
-        fetch('/api/fetch-data/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                symbol: '{{ issuer.code }}',
-                from_date: fromDate,
-                to_date: toDate
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
+
+        try {
+            const button = this;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Fetching...';
+
+            const response = await fetch('/api/fetch-data/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    command: 'fetch_stock_data',
+                    symbol: '{{ issuer.code }}',
+                    from_date: fromDate,
+                    to_date: toDate
+                })
+            });
+
+            const data = await response.json();
+            
             if (data.status === 'success') {
-                location.reload();
+                const stockDataResponse = await fetch(`/api/stock-data/{{ issuer.code }}/`);
+                const stockData = await stockDataResponse.json();
+                
+                updateCharts(stockData.prices);
+                
+                if (stockData.last_price) {
+                    // Update price information as before
+                    document.querySelector('[data-price="last_trade"]').textContent = 
+                        `Last Trade: ${stockData.last_price.last_trade_price}`;
+                    document.querySelector('[data-price="high"]').textContent = 
+                        `High: ${stockData.last_price.max_price}`;
+                    document.querySelector('[data-price="low"]').textContent = 
+                        `Low: ${stockData.last_price.min_price}`;
+                    document.querySelector('[data-price="avg"]').textContent = 
+                        `Average: ${stockData.last_price.avg_price}`;
+                    document.querySelector('[data-price="change"]').textContent = 
+                        `Change: ${stockData.last_price.price_change}%`;
+                    document.querySelector('[data-price="volume"]').textContent = 
+                        `Volume: ${stockData.last_price.volume}`;
+                    document.querySelector('[data-price="turnover"]').textContent = 
+                        `Turnover: ${stockData.last_price.total_turnover}`;
+                }
             } else {
                 alert('Error: ' + data.message);
             }
-        });
+
+            button.disabled = false;
+            button.textContent = originalText;
+        } catch (error) {
+            console.error('Error:', error);
+            button.disabled = false;
+            button.textContent = originalText;
+        }
     });
 });
 
@@ -142,6 +325,38 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+async function fetchData(symbol, button) {
+    const originalText = 'Fetch Data';
+    try {
+        button.disabled = true;
+        button.textContent = 'Fetching...';
+        
+        const response = await fetch(`/fetch-data/${symbol}/`);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            console.error('Error:', result.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    } finally {
+        if (button && !button.isConnected) {
+            // If button was removed from DOM, find it again
+            button = document.querySelector(`button[data-symbol="${symbol}"]`);
+        }
+        
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
 }
 </script>
 {% endblock %} 

@@ -7,6 +7,7 @@ from decimal import Decimal
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from django.utils import timezone
 
 class Filter(ABC):
     @abstractmethod
@@ -35,17 +36,62 @@ class DataFetchFilter(Filter):
         self.max_workers = max_workers
         self.scraper = WebScraper(max_workers=max_workers)
     
+    def _save_stock_data(self, df, issuer):
+        # Rename columns to match our model fields
+        column_mapping = {
+            'last trade price': 'last_trade_price',
+            'avg. price': 'avg_price',
+            '%chg.': 'price_change',
+            'turnover in best in denars': 'turnover_best',
+            'total turnover in denars': 'total_turnover'
+        }
+        df = df.rename(columns=column_mapping)
+        
+        for _, row in df.iterrows():
+            try:
+                defaults = {}
+                fields = {
+                    'last_trade_price': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'max_price': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'min_price': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'avg_price': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'price_change': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'volume': lambda x: int(float(x)) if pd.notna(x) else 0,
+                    'turnover_best': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0'),
+                    'total_turnover': lambda x: Decimal(str(x)) if pd.notna(x) else Decimal('0')
+                }
+                
+                for field, converter in fields.items():
+                    try:
+                        value = row.get(field)
+                        if isinstance(value, str):
+                            value = value.replace(',', '')
+                        defaults[field] = converter(value)
+                    except (ValueError, TypeError, KeyError) as e:
+                        print(f"Error converting {field}: {value} - {str(e)}")
+                        defaults[field] = Decimal('0') if field != 'volume' else 0
+
+                StockPrice.objects.update_or_create(
+                    issuer=issuer,
+                    date=row['date'],
+                    defaults=defaults
+                )
+            except Exception as e:
+                print(f"Error saving row {row.get('date', 'unknown date')}: {str(e)}")
+                print(f"Row data: {row.to_dict()}")
+                continue
+    
     def _process_issuer(self, data):
         code, issuer_data = data
         issuer = issuer_data['issuer']
         from_date = issuer_data['last_date']
-        to_date = datetime.now().date()
+        to_date = timezone.now().date()  # Use timezone aware date
         
         try:
             df = self.scraper.get_stock_data(code, from_date, to_date)
             if not df.empty:
                 self._save_stock_data(df, issuer)
-                issuer.last_updated = datetime.now()
+                issuer.last_updated = timezone.now()  # Use timezone aware datetime
                 issuer.save()
             return code, True
         except Exception as e:
@@ -66,63 +112,12 @@ class DataFetchFilter(Filter):
             for future in as_completed(futures):
                 try:
                     code, success = future.result()
-                    results.append(code)
+                    if success:
+                        results.append(code)
                 except Exception as e:
                     print(f"Error in thread: {str(e)}")
         
         return results
-
-    def _save_stock_data(self, df, issuer):
-        batch = []
-        for _, row in df.iterrows():
-            date = datetime.strptime(row['Date'], '%m/%d/%Y').date()
-            
-            if row['Volume'] == '0':
-                continue
-                
-            last_trade_price = Decimal(row['Last trade price'].replace(',', ''))
-            max_price = Decimal(row['Max'].replace(',', '') if row['Max'] else last_trade_price)
-            min_price = Decimal(row['Min'].replace(',', '') if row['Min'] else last_trade_price)
-            avg_price = Decimal(row['Avg. Price'].replace(',', '') if row['Avg. Price'] else last_trade_price)
-            price_change = Decimal(row['%chg.'].replace(',', ''))
-            volume = int(row['Volume'].replace(',', ''))
-            turnover_best = Decimal(row['Turnover in BEST in denars'].replace(',', ''))
-            total_turnover = Decimal(row['Total turnover in denars'].replace(',', ''))
-            
-            stock_price = StockPrice(
-                issuer=issuer,
-                date=date,
-                last_trade_price=last_trade_price,
-                max_price=max_price,
-                min_price=min_price,
-                avg_price=avg_price,
-                price_change=price_change,
-                volume=volume,
-                turnover_best=turnover_best,
-                total_turnover=total_turnover
-            )
-            batch.append(stock_price)
-            
-            if len(batch) >= 100:
-                StockPrice.objects.bulk_create(
-                    batch, 
-                    update_conflicts=True,
-                    unique_fields=['issuer', 'date'],
-                    update_fields=['last_trade_price', 'max_price', 'min_price', 
-                                 'avg_price', 'price_change', 'volume', 
-                                 'turnover_best', 'total_turnover']
-                )
-                batch = []
-        
-        if batch:
-            StockPrice.objects.bulk_create(
-                batch,
-                update_conflicts=True,
-                unique_fields=['issuer', 'date'],
-                update_fields=['last_trade_price', 'max_price', 'min_price', 
-                             'avg_price', 'price_change', 'volume', 
-                             'turnover_best', 'total_turnover']
-            )
 
 class Pipeline:
     def __init__(self):

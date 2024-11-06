@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+*.pyc
+__pycache__
+.pytest_cache
+.coverage
+htmlcov
+dist
+*.egg-info
+.tox
+.venv
+venv
+db.sqlite3
+media
+node_modules
+staticfiles 

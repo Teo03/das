@@ -5,24 +5,51 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from bs4 import BeautifulSoup
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import time
 import queue
-import threading
+from io import StringIO
+from django.conf import settings
+import os
 
 class WebScraper:
     def __init__(self, max_workers=4):
         self.chrome_options = Options()
+        
+        if not settings.DEBUG:
+            self.chrome_options.add_argument('--headless')
+            self.chrome_options.add_argument('--no-sandbox')
+            self.chrome_options.add_argument('--disable-dev-shm-usage')
+            self.chrome_options.binary_location = '/usr/bin/chromium'
+            
         self.chrome_options.add_argument("--window-size=1920,1080")
         self.chrome_options.add_argument("--start-maximized")
-        self.chrome_options.add_argument("--headless")
+        self.chrome_options.add_argument('--disable-gpu')
+        self.chrome_options.add_argument('--disable-extensions')
+        self.chrome_options.add_argument('--disable-infobars')
+        self.chrome_options.add_argument('--disable-notifications')
+        self.chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        prefs = {
+            'profile.default_content_setting_values': {
+                'notifications': 2,
+                'alerts': 2
+            }
+        }
+        self.chrome_options.add_experimental_option('prefs', prefs)
+        
         self.max_workers = max_workers
         self.driver_pool = queue.Queue()
         
     def _create_driver(self):
-        return webdriver.Chrome(options=self.chrome_options)
+        if settings.DEBUG:
+            from selenium.webdriver.chrome.service import Service
+            from webdriver_manager.chrome import ChromeDriverManager
+            service = Service(ChromeDriverManager().install())
+            return webdriver.Chrome(options=self.chrome_options, service=service)
+        else:
+            service = webdriver.ChromeService(executable_path='/usr/bin/chromedriver')
+            return webdriver.Chrome(options=self.chrome_options, service=service)
     
     def _get_driver(self):
         try:
@@ -89,17 +116,43 @@ class WebScraper:
             table = soup.find('table', {'id': 'resultsTable'})
             
             headers = []
+            header_mapping = {
+                'date': 'date',
+                'last trade price': 'last_trade_price',
+                'max': 'max_price',
+                'min': 'min_price',
+                'avg. price': 'avg_price',
+                '%chg.': 'price_change',
+                'volume': 'volume',
+                'turnover in best in denars': 'turnover_best',
+                'total turnover in denars': 'total_turnover'
+            }
+            
             for th in table.find('thead').find_all('th'):
-                headers.append(th.text.strip())
-                
+                header = th.text.strip().lower()
+                headers.append(header_mapping.get(header, header))
+            
             rows = []
             for tr in table.find('tbody').find_all('tr'):
                 row = []
                 for td in tr.find_all('td'):
-                    row.append(td.text.strip())
+                    value = td.text.strip().replace(',', '')
+                    row.append(value)
                 rows.append(row)
                 
-            return pd.DataFrame(rows, columns=headers)
+            df = pd.DataFrame(rows, columns=headers)
+            
+            df['date'] = pd.to_datetime(df['date']).dt.date
+            
+            numeric_columns = ['last_trade_price', 'max_price', 'min_price', 
+                              'avg_price', 'price_change', 'volume', 
+                              'turnover_best', 'total_turnover']
+            
+            for col in numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            return df
             
         finally:
             self._return_driver(driver)
