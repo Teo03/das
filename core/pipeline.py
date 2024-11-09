@@ -33,7 +33,14 @@ class DataFetchFilter(Filter):
         self.max_workers = max_workers
         self.scraper = WebScraper(max_workers=max_workers, headless=True)
         self.save_to_db = save_to_db
-    
+
+    def format_price(self, value):
+        """Format the price as '20.456,00'."""
+        if value is None:
+            return "0,00"
+        value = Decimal(value)
+        return f"{value:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
     def _save_stock_data(self, df, issuer):
         if not self.save_to_db:
             return
@@ -71,6 +78,11 @@ class DataFetchFilter(Filter):
                     except (ValueError, TypeError, KeyError) as e:
                         print(f"Error converting {field}: {value} - {str(e)}")
                         defaults[field] = Decimal('0') if field != 'volume' else 0
+
+                # Format the price fields
+                for field in ['last_trade_price', 'max_price', 'min_price', 'avg_price', 'price_change', 'turnover_best', 'total_turnover']:
+                    if field in defaults:
+                        defaults[field] = self.format_price(defaults[field])
 
                 StockPrice.objects.update_or_create(
                     issuer=issuer,
