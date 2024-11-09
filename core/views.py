@@ -1,10 +1,10 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
-from django.core.management import call_command
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from .models import Issuer, StockPrice
 import json
+from datetime import datetime
 
 @ensure_csrf_cookie
 def index(request):
@@ -14,7 +14,14 @@ def index(request):
 @ensure_csrf_cookie
 def stock_detail(request, symbol):
     issuer = get_object_or_404(Issuer, code=symbol)
-    prices = StockPrice.objects.filter(issuer=issuer).order_by('-date')
+    current_year = timezone.now().year
+    start_date = datetime(current_year, 1, 1).date()
+    end_date = timezone.now().date()
+    
+    prices = StockPrice.objects.filter(
+        issuer=issuer,
+        date__range=[start_date, end_date]
+    ).order_by('-date')
     
     price_data = [
         {
@@ -35,38 +42,33 @@ def stock_detail(request, symbol):
         'last_price': prices.first()
     })
 
-def fetch_data(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            
-            if data.get('command') == 'get_all_symbols':
-                call_command('get_all_symbols')
-            elif data.get('command') == 'fetch_stock_data':
-                symbol = data.get('symbol')
-                from_date = data.get('from_date')
-                to_date = data.get('to_date')
-                
-                call_command('fetch_stock_data_for_symbol', 
-                           symbol=symbol,
-                           from_date=from_date,
-                           to_date=to_date,
-                           quiet=True)
-                
-                # Update the issuer's last_updated timestamp with timezone aware datetime
-                issuer = Issuer.objects.get(code=symbol)
-                issuer.last_updated = timezone.now()
-                issuer.save()
-            
-            return JsonResponse({'status': 'success'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-    
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
-
 def stock_data(request, symbol):
     issuer = get_object_or_404(Issuer, code=symbol)
-    prices = StockPrice.objects.filter(issuer=issuer).order_by('-date')
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    
+    prices_query = StockPrice.objects.filter(issuer=issuer)
+    
+    if from_date and to_date:
+        prices_query = prices_query.filter(
+            date__range=[from_date, to_date]
+        ).order_by('-date')
+    else:
+        current_year = timezone.now().year
+        start_date = datetime(current_year, 1, 1).date()
+        end_date = timezone.now().date()
+        prices_query = prices_query.filter(
+            date__range=[start_date, end_date]
+        ).order_by('-date')
+    
+    prices = prices_query.order_by('-date')
+    
+    if not prices.exists():
+        return JsonResponse({
+            'prices': [],
+            'last_price': None,
+            'message': 'No data available for the selected period'
+        })
     
     price_data = [
         {

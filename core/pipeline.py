@@ -1,13 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from datetime import datetime, timedelta
 from .models import Issuer, StockPrice
 from .utils import WebScraper
 from decimal import Decimal
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
-from django.utils import timezone
 
 class Filter(ABC):
     @abstractmethod
@@ -16,7 +13,7 @@ class Filter(ABC):
 
 class IssuerListFilter(Filter):
     def process(self, input_data=None):
-        scraper = WebScraper()
+        scraper = WebScraper(headless=True)
         symbols = scraper.get_symbols()
         
         # create or update issuers in database, excluding symbols starting with 'E'
@@ -32,11 +29,15 @@ class IssuerListFilter(Filter):
         return filtered_symbols
 
 class DataFetchFilter(Filter):
-    def __init__(self, max_workers=4):
+    def __init__(self, max_workers=10, save_to_db=True):
         self.max_workers = max_workers
-        self.scraper = WebScraper(max_workers=max_workers)
+        self.scraper = WebScraper(max_workers=max_workers, headless=True)
+        self.save_to_db = save_to_db
     
     def _save_stock_data(self, df, issuer):
+        if not self.save_to_db:
+            return
+            
         # Rename columns to match our model fields
         column_mapping = {
             'last trade price': 'last_trade_price',
@@ -81,43 +82,20 @@ class DataFetchFilter(Filter):
                 print(f"Row data: {row.to_dict()}")
                 continue
     
-    def _process_issuer(self, data):
-        code, issuer_data = data
-        issuer = issuer_data['issuer']
-        from_date = issuer_data['last_date']
-        to_date = timezone.now().date()  # Use timezone aware date
-        
-        try:
-            df = self.scraper.get_stock_data(code, from_date, to_date)
-            if not df.empty:
-                self._save_stock_data(df, issuer)
-                issuer.last_updated = timezone.now()  # Use timezone aware datetime
-                issuer.save()
-            return code, True
-        except Exception as e:
-            print(f"Error processing {code}: {str(e)}")
-            return code, False
-    
-    def process(self, issuer_data):
-        if not issuer_data:
+    def process(self, input_data):
+        if not input_data:
             return []
         
-        results = []
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self._process_issuer, (code, data)) 
-                for code, data in issuer_data.items()
-            ]
-            
-            for future in as_completed(futures):
-                try:
-                    code, success = future.result()
-                    if success:
-                        results.append(code)
-                except Exception as e:
-                    print(f"Error in thread: {str(e)}")
+        df = self.scraper.get_stock_data(
+            input_data['symbol'], 
+            input_data['from_date'],
+            input_data['to_date']
+        )
         
-        return results
+        if not df.empty:
+            self._save_stock_data(df, input_data['issuer'])
+            return df.to_dict('records')
+        return []
 
 class Pipeline:
     def __init__(self):

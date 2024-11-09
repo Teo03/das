@@ -26,6 +26,16 @@ class Command(BaseCommand):
             required=True
         )
         parser.add_argument('--quiet', action='store_true', help='Suppress output')
+        parser.add_argument(
+            '--return-data',
+            action='store_true',
+            help='Return data instead of saving to database'
+        )
+        parser.add_argument(
+            '--no-db-save',
+            action='store_true',
+            help='Do not save data to database'
+        )
 
     def handle(self, *args, **options):
         try:
@@ -42,14 +52,14 @@ class Command(BaseCommand):
                 to_date = datetime.strptime(to_date_str, '%m/%d/%Y').date()
             
             input_data = {
-                options['symbol']: {
-                    'issuer': issuer,
-                    'last_date': from_date
-                }
+                'symbol': options['symbol'],
+                'issuer': issuer,
+                'from_date': from_date,
+                'to_date': to_date
             }
             
             pipeline = Pipeline()
-            pipeline.add_filter(DataFetchFilter())
+            pipeline.add_filter(DataFetchFilter(save_to_db=not options.get('no_db_save', False)))
             
             result = pipeline.execute(input_data)
             
@@ -60,6 +70,9 @@ class Command(BaseCommand):
                         f'From: {from_date} To: {to_date}'
                     )
                 )
+            
+            if options.get('return_data'):
+                return result
             
         except Issuer.DoesNotExist:
             self.stdout.write(

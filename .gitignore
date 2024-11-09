@@ -136,3 +136,4 @@ node_modules
 data
 staticfiles
 .DS_Store
+stock_data

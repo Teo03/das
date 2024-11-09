@@ -6,7 +6,7 @@
         <h2>{{ issuer.code }} - {{ issuer.name }}</h2>
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Fetch Data</h5>
+                <h5 class="card-title">View Data</h5>
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label for="fromDate" class="form-label">From Date</label>
@@ -15,10 +15,6 @@
                     <div class="col-md-4">
                         <label for="toDate" class="form-label">To Date</label>
                         <input type="date" class="form-control" id="toDate">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">&nbsp;</label>
-                        <button class="btn btn-primary d-block" id="fetchDataBtn" data-symbol="{{ issuer.code }}">Fetch Data</button>
                     </div>
                 </div>
             </div>
@@ -109,6 +105,102 @@ document.addEventListener('DOMContentLoaded', function() {
     let charts = {};
     const prices = {{ prices|safe }};
     
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    
+    const fromDateInput = document.getElementById('fromDate');
+    const toDateInput = document.getElementById('toDate');
+    
+    fromDateInput.value = startOfYear.toISOString().split('T')[0];
+    toDateInput.value = now.toISOString().split('T')[0];
+    
+    fromDateInput.addEventListener('change', fetchDateRangeData);
+    toDateInput.addEventListener('change', fetchDateRangeData);
+    
+    fetchDateRangeData();
+    
+    async function fetchDateRangeData() {
+        const fromDate = fromDateInput.value;
+        const toDate = toDateInput.value;
+        
+        if (!fromDate || !toDate) return;
+        
+        try {
+            const stockDataResponse = await fetch(
+                `/api/stock-data/{{ issuer.code }}/?from_date=${fromDate}&to_date=${toDate}`
+            );
+            const stockData = await stockDataResponse.json();
+            
+            if (stockData.prices && stockData.prices.length > 0) {
+                updateCharts(stockData.prices);
+                updatePriceInfo(stockData.last_price);
+            } else {
+                showNoDataMessage();
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showNoDataMessage();
+        }
+    }
+    
+    function showNoDataMessage() {
+        const priceElements = document.querySelectorAll('[data-price]');
+        priceElements.forEach(el => {
+            el.textContent = el.getAttribute('data-price').replace('_', ' ').toUpperCase() + ': N/A';
+        });
+        
+        const chartIds = ['priceChart', 'volumeChart', 'priceRangeChart', 'priceChangeChart'];
+        chartIds.forEach(id => {
+            createEmptyChart(document.getElementById(id).getContext('2d'));
+        });
+    }
+    
+    function createEmptyChart(ctx) {
+        if (charts[ctx.canvas.id]) {
+            charts[ctx.canvas.id].destroy();
+        }
+        
+        charts[ctx.canvas.id] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'No data available for selected period',
+                        font: {
+                            size: 16
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function updatePriceInfo(lastPrice) {
+        if (!lastPrice) return;
+        
+        document.querySelector('[data-price="last_trade"]').textContent = 
+            `Last Trade: ${lastPrice.last_trade_price}`;
+        document.querySelector('[data-price="high"]').textContent = 
+            `High: ${lastPrice.max_price}`;
+        document.querySelector('[data-price="low"]').textContent = 
+            `Low: ${lastPrice.min_price}`;
+        document.querySelector('[data-price="avg"]').textContent = 
+            `Average: ${lastPrice.avg_price}`;
+        document.querySelector('[data-price="change"]').textContent = 
+            `Change: ${lastPrice.price_change}%`;
+        document.querySelector('[data-price="volume"]').textContent = 
+            `Volume: ${lastPrice.volume}`;
+        document.querySelector('[data-price="turnover"]').textContent = 
+            `Turnover: ${lastPrice.total_turnover}`;
+    }
+    
     function createChart(ctx, config) {
         if (charts[ctx.canvas.id]) {
             charts[ctx.canvas.id].destroy();
@@ -185,7 +277,6 @@ document.addEventListener('DOMContentLoaded', function() {
             options: getChartOptions('Price (MKD)')
         });
 
-        // Price Change Chart
         createChart(document.getElementById('priceChangeChart').getContext('2d'), {
             type: 'bar',
             data: {
@@ -239,77 +330,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
     }
-    
-    // Initial chart update
-    updateCharts(prices);
-    
-    // Fetch data button handler
-    document.getElementById('fetchDataBtn').addEventListener('click', async function() {
-        const fromDate = document.getElementById('fromDate').value;
-        const toDate = document.getElementById('toDate').value;
-        
-        if (!fromDate || !toDate) {
-            alert('Please select both dates');
-            return;
-        }
-
-        try {
-            const button = this;
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Fetching...';
-
-            const response = await fetch('/api/fetch-data/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    command: 'fetch_stock_data',
-                    symbol: '{{ issuer.code }}',
-                    from_date: fromDate,
-                    to_date: toDate
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.status === 'success') {
-                const stockDataResponse = await fetch(`/api/stock-data/{{ issuer.code }}/`);
-                const stockData = await stockDataResponse.json();
-                
-                updateCharts(stockData.prices);
-                
-                if (stockData.last_price) {
-                    // Update price information as before
-                    document.querySelector('[data-price="last_trade"]').textContent = 
-                        `Last Trade: ${stockData.last_price.last_trade_price}`;
-                    document.querySelector('[data-price="high"]').textContent = 
-                        `High: ${stockData.last_price.max_price}`;
-                    document.querySelector('[data-price="low"]').textContent = 
-                        `Low: ${stockData.last_price.min_price}`;
-                    document.querySelector('[data-price="avg"]').textContent = 
-                        `Average: ${stockData.last_price.avg_price}`;
-                    document.querySelector('[data-price="change"]').textContent = 
-                        `Change: ${stockData.last_price.price_change}%`;
-                    document.querySelector('[data-price="volume"]').textContent = 
-                        `Volume: ${stockData.last_price.volume}`;
-                    document.querySelector('[data-price="turnover"]').textContent = 
-                        `Turnover: ${stockData.last_price.total_turnover}`;
-                }
-            } else {
-                alert('Error: ' + data.message);
-            }
-
-            button.disabled = false;
-            button.textContent = originalText;
-        } catch (error) {
-            console.error('Error:', error);
-            button.disabled = false;
-            button.textContent = originalText;
-        }
-    });
 });
 
 function getCookie(name) {
@@ -325,38 +345,6 @@ function getCookie(name) {
         }
     }
     return cookieValue;
-}
-
-async function fetchData(symbol, button) {
-    const originalText = 'Fetch Data';
-    try {
-        button.disabled = true;
-        button.textContent = 'Fetching...';
-        
-        const response = await fetch(`/fetch-data/${symbol}/`);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        
-        const result = await response.json();
-        if (result.success) {
-            location.reload();
-        } else {
-            console.error('Error:', result.error);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    } finally {
-        if (button && !button.isConnected) {
-            // If button was removed from DOM, find it again
-            button = document.querySelector(`button[data-symbol="${symbol}"]`);
-        }
-        
-        if (button) {
-            button.disabled = false;
-            button.textContent = originalText;
-        }
-    }
 }
 </script>
 {% endblock %} 

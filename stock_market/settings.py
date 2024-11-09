@@ -85,12 +85,18 @@ WSGI_APPLICATION = 'stock_market.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
 DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('AIVEN_CLOUD_DATABASE', 'defaultdb'),
+        'USER': os.environ.get('AIVEN_CLOUD_USER', 'avnadmin'),
+        'PASSWORD': os.environ.get('AIVEN_CLOUD_PASSWORD', ''),
+        'HOST': os.environ.get('AIVEN_CLOUD_HOST', ''),
+        'PORT': os.environ.get('AIVEN_CLOUD_PORT', ''),
+        'OPTIONS': {
+            'sslmode': 'require',
+        }
+    }
 }
 
 

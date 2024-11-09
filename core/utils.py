@@ -5,24 +5,22 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import time
 import queue
-from io import StringIO
-from django.conf import settings
-import os
+import logging
 
 class WebScraper:
-    def __init__(self, max_workers=4):
-        self.chrome_options = Options()
+    def __init__(self, max_workers=10, headless=True):
+        self.max_workers = max_workers
+        self.headless = headless
         
-        if not settings.DEBUG:
-            self.chrome_options.add_argument('--headless')
-            self.chrome_options.add_argument('--no-sandbox')
-            self.chrome_options.add_argument('--disable-dev-shm-usage')
-            self.chrome_options.binary_location = '/usr/bin/chromium'
-            
+        self.chrome_options = Options()
+        if headless:
+            self.chrome_options.add_argument('--headless=new')
+        
+        self.chrome_options.add_argument('--no-sandbox')
+        self.chrome_options.add_argument('--disable-dev-shm-usage')
         self.chrome_options.add_argument("--window-size=1920,1080")
         self.chrome_options.add_argument("--start-maximized")
         self.chrome_options.add_argument('--disable-gpu')
@@ -30,6 +28,7 @@ class WebScraper:
         self.chrome_options.add_argument('--disable-infobars')
         self.chrome_options.add_argument('--disable-notifications')
         self.chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        
         prefs = {
             'profile.default_content_setting_values': {
                 'notifications': 2,
@@ -37,19 +36,14 @@ class WebScraper:
             }
         }
         self.chrome_options.add_experimental_option('prefs', prefs)
-        
-        self.max_workers = max_workers
         self.driver_pool = queue.Queue()
         
     def _create_driver(self):
-        if settings.DEBUG:
-            from selenium.webdriver.chrome.service import Service
-            from webdriver_manager.chrome import ChromeDriverManager
-            service = Service(ChromeDriverManager().install())
-            return webdriver.Chrome(options=self.chrome_options, service=service)
-        else:
-            service = webdriver.ChromeService(executable_path='/usr/bin/chromedriver')
-            return webdriver.Chrome(options=self.chrome_options, service=service)
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        
+        service = Service(ChromeDriverManager().install())
+        return webdriver.Chrome(service=service, options=self.chrome_options)
     
     def _get_driver(self):
         try:
@@ -108,29 +102,52 @@ class WebScraper:
             find_button = driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Find']")
             find_button.click()
             
-            wait.until(EC.presence_of_element_located((By.ID, "resultsTable")))
+            wait.until(lambda driver: driver.find_element(By.ID, "resultsTable") or 
+                                    driver.find_element(By.CLASS_NAME, "no-results"))
             time.sleep(1)
             
             html = driver.page_source
             soup = BeautifulSoup(html, 'html.parser')
+            
+            no_results = soup.find('div', {'class': 'no-results'})
+            if no_results and 'No data' in no_results.text:
+                logging.debug(f'No data found for {symbol} between {from_date} and {to_date}')
+                driver.quit()
+                return pd.DataFrame({
+                    'date': pd.date_range(from_date, to_date),
+                    'last_trade_price': 0,
+                    'max_price': 0,
+                    'min_price': 0,
+                    'avg_price': 0,
+                    'price_change': 0,
+                    'volume': 0,
+                    'turnover_best': 0,
+                    'total_turnover': 0
+                })
+            
             table = soup.find('table', {'id': 'resultsTable'})
             
-            headers = []
-            header_mapping = {
-                'date': 'date',
-                'last trade price': 'last_trade_price',
-                'max': 'max_price',
-                'min': 'min_price',
-                'avg. price': 'avg_price',
-                '%chg.': 'price_change',
-                'volume': 'volume',
-                'turnover in best in denars': 'turnover_best',
-                'total turnover in denars': 'total_turnover'
-            }
+            headers = [
+                'date', 'last_trade_price', 'max_price', 'min_price', 
+                'avg_price', 'price_change', 'volume', 'turnover_best', 
+                'total_turnover'
+            ]
             
-            for th in table.find('thead').find_all('th'):
-                header = th.text.strip().lower()
-                headers.append(header_mapping.get(header, header))
+            if not table or not table.find('tbody').find_all('tr'):
+                date_range = pd.date_range(from_date, to_date)
+                df = pd.DataFrame({
+                    'date': date_range,
+                    'last_trade_price': 0,
+                    'max_price': 0,
+                    'min_price': 0,
+                    'avg_price': 0,
+                    'price_change': 0,
+                    'volume': 0,
+                    'turnover_best': 0,
+                    'total_turnover': 0
+                })
+                df['date'] = df['date'].dt.date
+                return df
             
             rows = []
             for tr in table.find('tbody').find_all('tr'):
@@ -154,30 +171,30 @@ class WebScraper:
             
             return df
             
+        except Exception as e:
+            logging.error(f"Error in _fetch_data_chunk: {str(e)}")
+            driver.quit()
+            raise
         finally:
-            self._return_driver(driver)
+            try:
+                driver.quit()
+            except:
+                pass
             
-    def get_stock_data(self, symbol, from_date, to_date, chunk_size=30):
-        chunks = []
-        current_date = from_date
-        while current_date < to_date:
-            chunk_end = min(current_date + pd.Timedelta(days=chunk_size), to_date)
-            chunks.append((symbol, current_date, chunk_end))
-            current_date = chunk_end + pd.Timedelta(days=1)
-        
-        all_data = []
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [executor.submit(self._fetch_data_chunk, chunk) for chunk in chunks]
-            
-            for future in as_completed(futures):
-                try:
-                    df = future.result()
-                    if not df.empty:
-                        all_data.append(df)
-                except Exception as e:
-                    print(f"Error fetching chunk: {str(e)}")
-        
-        # combine all chunks
-        if all_data:
-            return pd.concat(all_data, ignore_index=True)
-        return pd.DataFrame()
+    def get_stock_data(self, symbol, from_date, to_date):
+        try:
+            return self._fetch_data_chunk((symbol, from_date, to_date))
+        except Exception as e:
+            logging.error(f"Error in get_stock_data: {str(e)}")
+            date_range = pd.date_range(from_date, to_date)
+            return pd.DataFrame({
+                'date': date_range,
+                'last_trade_price': 0,
+                'max_price': 0,
+                'min_price': 0,
+                'avg_price': 0,
+                'price_change': 0,
+                'volume': 0,
+                'turnover_best': 0,
+                'total_turnover': 0
+            })

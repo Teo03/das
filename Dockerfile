@@ -58,4 +58,4 @@ RUN mkdir -p staticfiles media \
 RUN python manage.py collectstatic --noinput
 EXPOSE $PORT
 
-CMD python manage.py migrate && gunicorn --config gunicorn-cfg.py stock_market.wsgi:application
+CMD gunicorn --config gunicorn-cfg.py stock_market.wsgi:application
