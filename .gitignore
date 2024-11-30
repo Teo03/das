@@ -132,7 +132,6 @@ dmypy.json
 .env__
 
 node_modules
-/static/
 data
 staticfiles
 .DS_Store

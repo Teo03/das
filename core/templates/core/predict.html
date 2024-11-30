@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Test Prediction - MSE{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 text-center">
+            <h1 class="display-3 mb-5" style="font-family: 'Cinzel', serif;">TEST PREDICTION</h1>
+            
+            <div class="row align-items-center">
+                <div class="col-md-6 text-start">
+                    <h2 class="mb-4" style="font-family: 'Cinzel', serif; font-size: 2.5rem;">Test our ML<br>based stock<br>prediction</h2>
+                </div>
+                <div class="col-md-6">
+                    <img src="{% static 'images/ai-predict-stocks.png' %}" alt="AI Prediction" class="img-fluid rounded-4 shadow-lg" style="max-width: 400px;">
+                </div>
+            </div>
+
+            <div class="row justify-content-center mt-5">
+                <div class="col-md-8">
+                    <form id="predictionForm" method="POST" class="mt-4">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <select name="stock" class="form-select form-select-lg mb-3" required>
+                                <option value="" selected disabled>Select a stock to predict</option>
+                                {% for stock in stocks %}
+                                <option value="{{ stock.code }}">{{ stock.name }} ({{ stock.code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-lg px-5 py-3 mt-3" style="background-color: #2D1934; color: white; font-family: 'Cinzel', serif;">
+                            Predict now!
+                        </button>
+                    </form>
+                    <p class="text-center mt-3" style="color: rgba(255,255,255,0.8);">
+                        Click here to start generating your best target
+                    </p>
+                </div>
+            </div>
+
+            {% if prediction %}
+            <div class="mt-5 prediction-result">
+                <div class="card bg-dark text-white">
+                    <div class="card-body p-4">
+                        <h3 class="mb-4">Prediction Results</h3>
+                        <div class="row">
+                            <div class="col-md-6 text-start">
+                                <p><strong>Stock:</strong> {{ prediction.stock }}</p>
+                                <p><strong>Current Price:</strong> {{ prediction.current_price }}</p>
+                                <p><strong>Predicted Price:</strong> 
+                                    <span class="prediction-price">{{ prediction.predicted_price }}</span>
+                                    <span class="change-percent ms-2 {% if '-' in prediction.change_percent %}text-danger{% else %}text-success{% endif %}">
+                                        {{ prediction.change_percent }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6 text-start">
+                                <p><strong>Confidence Level:</strong> 
+                                    <div class="progress bg-secondary" style="height: 25px;">
+                                        <div class="progress-bar bg-success" 
+                                             role="progressbar" 
+                                             style="width: {{ prediction.confidence }}%;" 
+                                             aria-valuenow="{{ prediction.confidence }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ prediction.confidence }}%
+                                        </div>
+                                    </div>
+                                </p>
+                                <p class="mt-3"><strong>Prediction Date:</strong> {{ prediction.date }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-select {
+        background-color: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 1rem;
+    }
+    .form-select option {
+        background-color: #71507E;
+        color: white;
+    }
+    .btn:hover {
+        background-color: #3D2445 !important;
+        transform: translateY(-2px);
+        transition: all 0.3s ease;
+    }
+    .prediction-result {
+        animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}

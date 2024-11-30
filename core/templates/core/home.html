@@ -1,0 +1,209 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="landing-container">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="stock-data-card glass-card">
+            <div class="card-image">
+                <img src="{% static 'images/stock-graph.png' %}" alt="Stock Graph" class="rounded-image">
+            </div>
+            <div class="card-content">
+                <h2>Check out the most recent stock data</h2>
+                <a href="{% url 'index' %}" class="btn-primary glass-button">Most Recents Stocks Table</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="worth-card glass-card">
+            <div class="worth-content">
+                <div class="graph-circle">
+                    <img src="{% static 'images/circular-graph.png' %}" alt="Circular Graph" class="rounded-image">
+                </div>
+                <div class="worth-text">
+                    <h2>Discover Top Performing Stocks</h2>
+                    <p>Track market trends and identify the most valuable investment opportunities in real-time. Our comprehensive analysis helps you make informed decisions.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="predict-card glass-card">
+            <div class="ai-image">
+                <img src="{% static 'images/ai-predict.png' %}" alt="AI Prediction" class="rounded-image">
+            </div>
+            <div class="predict-content">
+                <h2>Predict future stocks</h2>
+                <a href="{% url 'predict' %}" class="btn-dark glass-button">Predict Here</a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .landing-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        min-height: calc(100vh - 60px);
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(237, 196, 248, 0.1);
+        border-radius: 15px;
+        transition: all 0.3s ease;
+    }
+
+    .glass-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(237, 196, 248, 0.2);
+        transform: translateY(-5px);
+    }
+
+    .glass-button {
+        background: rgba(44, 7, 40, 0.6);
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(237, 196, 248, 0.2);
+        color: white;
+        padding: 0.8rem 1.8rem;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: inline-block;
+        font-weight: 500;
+    }
+
+    .glass-button:hover {
+        background: rgba(49, 21, 60, 0.8);
+        border-color: rgba(237, 196, 248, 0.3);
+        transform: translateY(-2px);
+        color: white;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .hero-section {
+        margin-bottom: 4rem;
+    }
+
+    .stock-data-card {
+        padding: 2rem;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .card-image {
+        flex: 1;
+    }
+
+    .card-content {
+        flex: 1;
+    }
+
+    .features-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+
+    .worth-card {
+        padding: 2.5rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .worth-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+        text-align: center;
+    }
+
+    .worth-text {
+        max-width: 600px;
+    }
+
+    .worth-text h2 {
+        font-size: 2.2rem;
+        margin-bottom: 1.2rem;
+        font-family: 'Cinzel', serif;
+        color: white;
+        line-height: 1.3;
+    }
+
+    .worth-text p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .graph-circle {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+    }
+
+    .graph-circle img {
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+        border-radius: 15px;
+        transition: transform 0.3s ease;
+    }
+
+    .worth-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .worth-card:hover .graph-circle img {
+        transform: scale(1.02);
+    }
+
+    .predict-card {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .rounded-image {
+        width: 100%;
+        height: auto;
+        border-radius: 10px;
+    }
+
+    .predict-content {
+        margin-top: 2rem;
+    }
+
+    h2 {
+        margin-bottom: 1.5rem;
+        color: white;
+        font-family: 'Cinzel', serif;
+    }
+
+    @media (max-width: 768px) {
+        .stock-data-card {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .features-section {
+            grid-template-columns: 1fr;
+        }
+
+        .worth-text h2 {
+            font-size: 1.8rem;
+        }
+
+        .graph-circle img {
+            max-width: 300px;
+        }
+    }
+</style>
+{% endblock %}

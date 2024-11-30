@@ -1,40 +1,145 @@
 {% extends 'core/base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <h2>Stock Symbols</h2>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="w-50">
-                <input type="text" id="searchInput" class="form-control" placeholder="Search by symbol or company name...">
+<div class="container mt-5">
+    <h1 class="text-center mb-5" style="font-family: 'Cinzel', serif;">Stock Symbols</h1>
+    
+    <div class="search-container mb-5">
+        <div class="search-box">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search by company or their symbol...">
+            <div class="search-icon">
+                <i class="fas fa-search"></i>
             </div>
         </div>
-        
-        <div class="row row-cols-1 row-cols-md-3 g-4" id="stockCards">
-            {% for issuer in issuers %}
-            <div class="col stock-card" data-symbol="{{ issuer.code|lower }}" data-name="{{ issuer.name|lower }}">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ issuer.code }}</h5>
-                        <p class="card-text">{{ issuer.name }}</p>
-                        <a href="{% url 'stock_detail' issuer.code %}" class="btn btn-primary">View Details</a>
-                    </div>
+    </div>
+    
+    <div class="row row-cols-1 row-cols-md-3 g-4" id="stockCards">
+        {% for issuer in issuers %}
+        <div class="col stock-card" data-symbol="{{ issuer.code|lower }}" data-name="{{ issuer.name|lower }}">
+            <div class="stock-box">
+                <div class="stock-content">
+                    <h3 class="stock-symbol">{{ issuer.code }}</h3>
+                    <p class="stock-name">{{ issuer.name }}</p>
                 </div>
+                <a href="{% url 'stock_detail' issuer.code %}" class="view-details-btn">View Details</a>
             </div>
-            {% empty %}
-            <div class="col-12">
-                <p>No symbols found. Click "Refresh Symbol List" to fetch symbols.</p>
-            </div>
-            {% endfor %}
         </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <p>No symbols found.</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
+<style>
+    .search-container {
+        display: flex;
+        justify-content: center;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .search-box {
+        position: relative;
+        width: 100%;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 1rem 3rem 1rem 2rem;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(237, 196, 248, 0.2);
+        color: white !important;
+        font-size: 1.1rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .search-box input::placeholder {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: rgba(237, 196, 248, 0.4);
+        box-shadow: 0 0 15px rgba(237, 196, 248, 0.1);
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 1.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .stock-box {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 2rem;
+        height: 100%;
+        border: 1px solid rgba(237, 196, 248, 0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: white !important;
+    }
+
+    .stock-box:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(237, 196, 248, 0.2);
+    }
+
+    .stock-content {
+        margin-bottom: 1.5rem;
+    }
+
+    .stock-symbol {
+        font-family: 'Cinzel', serif;
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        color: white !important;
+    }
+
+    .stock-name {
+        color: rgba(255, 255, 255, 0.9) !important;
+        margin-bottom: 0;
+        font-size: 1.1rem;
+    }
+
+    .view-details-btn {
+        display: inline-block;
+        padding: 0.7rem 1.5rem;
+        background: rgba(44, 7, 40, 0.8);
+        color: white !important;
+        text-decoration: none;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        text-align: center;
+        border: 1px solid rgba(237, 196, 248, 0.2);
+    }
+
+    .view-details-btn:hover {
+        background: rgba(49, 21, 60, 0.9);
+        color: white !important;
+        transform: translateY(-2px);
+    }
+
+    h1.text-center {
+        color: white !important;
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
 <script>
-// Search functionality
 document.getElementById('searchInput').addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase();
     const cards = document.getElementsByClassName('stock-card');
@@ -43,11 +148,15 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
         const symbol = card.dataset.symbol;
         const name = card.dataset.name;
         const matches = symbol.includes(searchTerm) || name.includes(searchTerm);
-        card.style.display = matches ? '' : 'none';
+        if (matches) {
+            card.style.display = '';
+            card.style.animation = 'fadeIn 0.5s ease forwards';
+        } else {
+            card.style.display = 'none';
+        }
     });
 });
 
-// Add debounce to search for better performance
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -72,6 +181,20 @@ const debouncedSearch = debounce((e) => {
     });
 }, 300);
 
-document.getElementById('searchInput').addEventListener('input', debouncedSearch);
+// Add animation keyframes
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+`;
+document.head.appendChild(style);
 </script>
-{% endblock %} 
+{% endblock %}

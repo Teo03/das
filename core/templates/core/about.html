@@ -1,0 +1,171 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="about-container">
+    <h1 class="about-title">About MSE</h1>
+
+    <div class="about-content">
+        <div class="what-is-mse">
+            <div class="what-is-mse-content">
+                <div class="what-is-mse-text">
+                    <h2>What is MSE?</h2>
+                    <p>
+                        Founded in 1995, the Macedonian Stock Exchange (MSE) is the principal marketplace for trading 
+                        securities in North Macedonia. Over the years, MSE has grown to become a vital component of the 
+                        country's financial system, providing a transparent and regulated environment for investors, companies, and 
+                        financial institutions.
+                    </p>
+                </div>
+                <div class="what-is-mse-image">
+                    <img src="{% static 'images/logo.png' %}" alt="MSE Logo" class="mse-logo">
+                </div>
+            </div>
+        </div>
+
+        <div class="mission-section">
+            <div class="mission-image">
+                <img src="{% static 'images/trading-desk.png' %}" alt="Trading Desk" class="rounded-image">
+            </div>
+            <div class="mission-text">
+                <h2>Mission</h2>
+                <p>
+                    The MSE is dedicated to promoting an efficient, transparent, and secure trading environment that 
+                    supports economic growth and development. By fostering investor confidence and facilitating 
+                    capital formation, we aim to be a cornerstone of the Macedonian financial landscape.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .about-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        color: white;
+    }
+
+    .about-title {
+        text-align: center;
+        font-size: 3.5rem;
+        margin-bottom: 4rem;
+        font-family: 'Cinzel', serif;
+        color: white;
+    }
+
+    .about-content {
+        display: grid;
+        gap: 4rem;
+    }
+
+    .what-is-mse {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .what-is-mse-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        align-items: center;
+        padding-right: 8rem;
+    }
+
+    .what-is-mse-text {
+        padding-right: 2rem;
+    }
+
+    .what-is-mse-text h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        font-family: 'Cinzel', serif;
+        color: white;
+    }
+
+    .what-is-mse-text p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .what-is-mse-image {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .what-is-mse-image img {
+        width: 90%;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .mission-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        align-items: center;
+    }
+
+    .mission-image img {
+        width: 100%;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .mission-text h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        font-family: 'Cinzel', serif;
+        color: white;
+        text-align: right;
+    }
+
+    .mission-text p {
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.9);
+        text-align: right;
+    }
+
+    .mse-logo {
+        width: 300px;
+        height: auto;
+    }
+
+    @media (max-width: 768px) {
+        .about-title {
+            font-size: 2.5rem;
+        }
+
+        .what-is-mse-content {
+            grid-template-columns: 1fr;
+        }
+
+        .what-is-mse-text {
+            text-align: left;
+        }
+
+        .what-is-mse-text h2,
+        .what-is-mse-text p {
+            text-align: left;
+        }
+
+        .mission-section {
+            grid-template-columns: 1fr;
+        }
+
+        .mission-text {
+            text-align: left;
+        }
+
+        .mission-text h2,
+        .mission-text p {
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
