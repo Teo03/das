@@ -53,6 +53,78 @@
         </div>
         {% endif %}
 
+        <!-- Technical Analysis Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Technical Analysis</h5>
+                        <ul class="nav nav-tabs" id="technicalTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="daily-tab" data-bs-toggle="tab" data-bs-target="#daily" type="button" role="tab">Daily (1)</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="weekly-tab" data-bs-toggle="tab" data-bs-target="#weekly" type="button" role="tab">Weekly (5)</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">Monthly (20)</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content mt-3" id="technicalTabContent">
+                            <div class="tab-pane fade show active" id="daily" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Moving Averages</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="maChart1"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Oscillators</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="oscillatorChart1"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="weekly" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Moving Averages</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="maChart5"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Oscillators</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="oscillatorChart5"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tab-pane fade" id="monthly" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Moving Averages</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="maChart20"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Oscillators</h6>
+                                        <div style="height: 300px;">
+                                            <canvas id="oscillatorChart20"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-6 mb-4">
                 <div class="card">
@@ -134,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (stockData.prices && stockData.prices.length > 0) {
                 updateCharts(stockData.prices);
                 updatePriceInfo(stockData.last_price);
+                updateTechnicalAnalysis(stockData.prices);
             } else {
                 showNoDataMessage();
             }
@@ -284,6 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
             options: getChartOptions('Price (MKD)')
         });
 
+        // Price Change Chart
         createChart(document.getElementById('priceChangeChart').getContext('2d'), {
             type: 'bar',
             data: {
@@ -299,6 +373,107 @@ document.addEventListener('DOMContentLoaded', function() {
                 }]
             },
             options: getChartOptions('Change %')
+        });
+    }
+
+    function updateTechnicalAnalysis(data) {
+        const dates = data.map(p => p.date).reverse();
+        const periods = [1, 5, 20];
+        
+        periods.forEach(period => {
+            // Moving Averages Chart
+            createChart(document.getElementById(`maChart${period}`).getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Price',
+                            data: data.map(p => p.close_price).reverse(),
+                            borderColor: 'rgb(0, 0, 0)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'SMA',
+                            data: data.map(p => p.technical_indicators[period].moving_averages.sma).reverse(),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'EMA',
+                            data: data.map(p => p.technical_indicators[period].moving_averages.ema).reverse(),
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'WMA',
+                            data: data.map(p => p.technical_indicators[period].moving_averages.wma).reverse(),
+                            borderColor: 'rgb(54, 162, 235)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: getChartOptions('Price (MKD)')
+            });
+
+            // Oscillators Chart
+            createChart(document.getElementById(`oscillatorChart${period}`).getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'RSI',
+                            data: data.map(p => p.technical_indicators[period].oscillators.rsi).reverse(),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'MACD',
+                            data: data.map(p => p.technical_indicators[period].oscillators.macd).reverse(),
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 1,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    ...getChartOptions('Value'),
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'RSI'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'MACD'
+                            }
+                        }
+                    }
+                }
+            });
         });
     }
 
@@ -369,4 +544,4 @@ function getCookie(name) {
     return cookieValue;
 }
 </script>
-{% endblock %} 
+{% endblock %}

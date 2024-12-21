@@ -6,6 +6,8 @@ from .models import Issuer, StockPrice
 import json
 from datetime import datetime
 import numpy as np
+import pandas as pd
+from .technical_analysis import calculate_technical_indicators, generate_signals, get_consensus_signal
 
 def home(request):
     return render(request, 'core/home.html')
@@ -80,6 +82,32 @@ def stock_data(request, symbol):
             'message': 'No data available for the selected period'
         })
     
+    # Convert to DataFrame for technical analysis
+    df = pd.DataFrame(list(prices.values()))
+    df = df.rename(columns={
+        'last_trade_price': 'close_price',
+        'max_price': 'high',
+        'min_price': 'low'
+    })
+    
+    # Calculate technical indicators for different periods
+    periods = [1, 5, 20]  # 1 day, 1 week, 1 month
+    indicators = calculate_technical_indicators(df, periods)
+    
+    # Generate signals for each period
+    signals = {}
+    consensus = {}
+    for period in periods:
+        signals[period] = generate_signals(indicators[period], period)
+        consensus[period] = get_consensus_signal(signals[period], period)
+    
+    def handle_nan(value):
+        if pd.isna(value) or np.isinf(value):
+            return None
+        if isinstance(value, float):
+            return float(value)
+        return value
+    
     price_data = [
         {
             'date': price.date.strftime('%Y-%m-%d'),
@@ -88,9 +116,45 @@ def stock_data(request, symbol):
             'max_price': float(price.max_price),
             'min_price': float(price.min_price),
             'avg_price': float(price.avg_price),
-            'price_change': float(price.price_change)
+            'price_change': float(price.price_change),
+            'technical_indicators': {
+                period: {
+                    'moving_averages': {
+                        'sma': handle_nan(indicators[period].iloc[i][f'sma_{period}']),
+                        'ema': handle_nan(indicators[period].iloc[i][f'ema_{period}']),
+                        'wma': handle_nan(indicators[period].iloc[i][f'wma_{period}']),
+                        'tema': handle_nan(indicators[period].iloc[i][f'tema_{period}']),
+                        'kama': handle_nan(indicators[period].iloc[i][f'kama_{period}'])
+                    },
+                    'oscillators': {
+                        'rsi': handle_nan(indicators[period].iloc[i][f'rsi_{period}']),
+                        'stoch': handle_nan(indicators[period].iloc[i][f'stoch_{period}']),
+                        'cci': handle_nan(indicators[period].iloc[i][f'cci_{period}']),
+                        'macd': handle_nan(indicators[period].iloc[i][f'macd_{period}']),
+                        'willr': handle_nan(indicators[period].iloc[i][f'willr_{period}'])
+                    },
+                    'signals': {
+                        'moving_averages': {
+                            'sma': signals[period].iloc[i][f'sma_signal_{period}'],
+                            'ema': signals[period].iloc[i][f'ema_signal_{period}'],
+                            'wma': signals[period].iloc[i][f'wma_signal_{period}'],
+                            'tema': signals[period].iloc[i][f'tema_signal_{period}'],
+                            'kama': signals[period].iloc[i][f'kama_signal_{period}']
+                        },
+                        'oscillators': {
+                            'rsi': signals[period].iloc[i][f'rsi_signal_{period}'],
+                            'stoch': signals[period].iloc[i][f'stoch_signal_{period}'],
+                            'cci': signals[period].iloc[i][f'cci_signal_{period}'],
+                            'macd': signals[period].iloc[i][f'macd_signal_{period}'],
+                            'willr': signals[period].iloc[i][f'willr_signal_{period}']
+                        },
+                        'consensus': consensus[period]
+                    }
+                }
+                for period in periods
+            }
         }
-        for price in prices
+        for i, price in enumerate(prices)
     ]
     
     last_price = prices.first()
@@ -109,7 +173,13 @@ def stock_data(request, symbol):
     
     return JsonResponse({
         'prices': price_data,
-        'last_price': last_price_data
+        'last_price': last_price_data,
+        'technical_analysis': {
+            period: {
+                'consensus': consensus[period]
+            }
+            for period in periods
+        }
     })
 
 def predict_view(request):
