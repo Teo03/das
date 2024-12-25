@@ -8,6 +8,26 @@ class Issuer(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
+class IssuerNews(models.Model):
+    issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, related_name='news')
+    title = models.CharField(max_length=500)
+    content = models.TextField()
+    published_date = models.DateTimeField()
+    source_url = models.URLField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Issuer News'
+        ordering = ['-published_date']
+        indexes = [
+            models.Index(fields=['published_date']),
+            models.Index(fields=['issuer', 'published_date'])
+        ]
+
+    def __str__(self):
+        return f"{self.issuer.code} - {self.title[:50]}"
+
 class StockPrice(models.Model):
     issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE)
     date = models.DateField()
