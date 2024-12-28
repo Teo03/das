@@ -4,11 +4,12 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
 from .models import Issuer, StockPrice, IssuerNews
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 from .technical_analysis import calculate_technical_indicators, generate_signals, get_consensus_signal
 from .sentiment_analysis import get_news_sentiment_signal
+from .lstm_prediction import prepare_prediction
 
 def home(request):
     return render(request, 'core/home.html')
@@ -184,10 +185,6 @@ def stock_data(request, symbol):
     })
 
 def predict_view(request):
-    from .models import Issuer, StockPrice
-    import numpy as np
-    from django.db.models import Max
-    from datetime import datetime, timedelta
     issuers = Issuer.objects.all()
     context = {'stocks': issuers}
     
@@ -195,55 +192,88 @@ def predict_view(request):
         issuer_code = request.POST.get('stock')
         issuer = Issuer.objects.get(code=issuer_code)
         
-        latest_price = StockPrice.objects.filter(issuer=issuer).order_by('-date').first()
+        # Get historical prices for neural network
+        historical_prices = StockPrice.objects.filter(
+            issuer=issuer
+        ).order_by('date').values_list('last_trade_price', flat=True)
         
-        if latest_price:
-            current_price = float(latest_price.last_trade_price)
+        # Get latest price for sentiment prediction
+        latest_price = StockPrice.objects.filter(issuer=issuer).order_by('-date').first()
+        current_price = float(latest_price.last_trade_price)
+        
+        # Get news sentiment signal
+        sentiment_signal, sentiment_confidence = get_news_sentiment_signal(issuer_code)
+        
+        # Adjust prediction based on sentiment
+        if sentiment_signal == 'BUY':
+            predicted_change = np.random.uniform(0.02, 0.15)  # Positive bias
+        elif sentiment_signal == 'SELL':
+            predicted_change = np.random.uniform(-0.15, -0.02)  # Negative bias
+        else:
+            predicted_change = np.random.uniform(-0.1, 0.15)  # Neutral
             
-            # Get news sentiment signal
-            sentiment_signal, sentiment_confidence = get_news_sentiment_signal(issuer_code)
-            
-            # Adjust prediction based on sentiment
-            if sentiment_signal == 'BUY':
-                predicted_change = np.random.uniform(0.02, 0.15)  # Positive bias
-            elif sentiment_signal == 'SELL':
-                predicted_change = np.random.uniform(-0.15, -0.02)  # Negative bias
-            else:
-                predicted_change = np.random.uniform(-0.1, 0.15)  # Neutral
+        predicted_price = current_price * (1 + predicted_change)
+        
+        # Get recent price volatility
+        last_month_prices = StockPrice.objects.filter(
+            issuer=issuer,
+            date__gte=datetime.now().date() - timedelta(days=30)
+        ).values_list('last_trade_price', flat=True)
+        
+        if last_month_prices:
+            price_volatility = np.std([float(p) for p in last_month_prices]) / np.mean([float(p) for p in last_month_prices])
+            # Combine technical confidence with sentiment confidence
+            confidence = max(70, min(95, (90 - price_volatility * 100) * 0.6 + sentiment_confidence * 0.4))
+        else:
+            confidence = sentiment_confidence
+        
+        # Get neural network predictions if enough data
+        nn_prediction = None
+        if len(historical_prices) > 30:
+            nn_results = prepare_prediction(issuer_code, historical_prices)
+            if nn_results:
+                prediction_dates = [(datetime.now() + timedelta(days=i)).strftime('%Y-%m-%d') 
+                                  for i in range(1, len(nn_results['predictions']) + 1)]
                 
-            predicted_price = current_price * (1 + predicted_change)
-            
-            # Get recent price volatility
-            last_month_prices = StockPrice.objects.filter(
-                issuer=issuer,
-                date__gte=datetime.now().date() - timedelta(days=30)
-            ).values_list('last_trade_price', flat=True)
-            
-            if last_month_prices:
-                price_volatility = np.std([float(p) for p in last_month_prices]) / np.mean([float(p) for p in last_month_prices])
-                # Combine technical confidence with sentiment confidence
-                confidence = max(70, min(95, (90 - price_volatility * 100) * 0.6 + sentiment_confidence * 0.4))
-            else:
-                confidence = sentiment_confidence
-            
-            # Get recent news for display
-            recent_news = IssuerNews.objects.filter(
-                issuer=issuer,
-                published_date__gte=datetime.now() - timedelta(days=30)
-            ).order_by('-published_date')[:5]
-            
-            prediction = {
-                'stock': issuer.name,
+                # Zip predictions with dates and format prices
+                predictions_with_dates = [
+                    {'date': date, 'price': f"${price:.2f}"} 
+                    for date, price in zip(prediction_dates, nn_results['predictions'])
+                ]
+                
+                nn_prediction = {
+                    'predictions': predictions_with_dates,
+                    'metrics': {
+                        'train_rmse': f"${nn_results['metrics']['train_rmse']:.2f}",
+                        'val_rmse': f"${nn_results['metrics']['val_rmse']:.2f}",
+                        'train_mae': f"${nn_results['metrics']['train_mae']:.2f}",
+                        'val_mae': f"${nn_results['metrics']['val_mae']:.2f}"
+                    },
+                    'plots': nn_results['plots']
+                }
+        
+        # Get recent news for display
+        recent_news = IssuerNews.objects.filter(
+            issuer=issuer,
+            published_date__gte=datetime.now() - timedelta(days=30)
+        ).order_by('-published_date')[:5]
+        
+        # Prepare prediction context
+        prediction = {
+            'stock': issuer.name,
+            'current_price': f"${current_price:.2f}",
+            'sentiment_prediction': {
                 'predicted_price': f"${predicted_price:.2f}",
-                'current_price': f"${current_price:.2f}",
                 'change_percent': f"{predicted_change * 100:+.1f}%",
                 'confidence': f"{confidence:.1f}",
                 'date': (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d'),
-                'sentiment_signal': sentiment_signal,
-                'recent_news': recent_news
-            }
-            
-            context['prediction'] = prediction
+            },
+            'sentiment_signal': sentiment_signal,
+            'recent_news': recent_news,
+            'nn_prediction': nn_prediction
+        }
+        
+        context['prediction'] = prediction
     
     return render(request, 'core/predict.html', context)
 

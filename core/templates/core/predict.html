@@ -42,17 +42,18 @@
 
             {% if prediction %}
             <div class="mt-5 prediction-result">
-                <div class="card bg-dark text-white">
+                <!-- Sentiment-based Prediction -->
+                <div class="card bg-dark text-white mb-4">
                     <div class="card-body p-4">
-                        <h3 class="mb-4">Prediction Results</h3>
+                        <h3 class="mb-4">Sentiment-based Prediction</h3>
                         <div class="row">
                             <div class="col-md-6 text-start">
                                 <p><strong>Stock:</strong> {{ prediction.stock }}</p>
                                 <p><strong>Current Price:</strong> {{ prediction.current_price }}</p>
                                 <p><strong>Predicted Price:</strong> 
-                                    <span class="prediction-price">{{ prediction.predicted_price }}</span>
-                                    <span class="change-percent ms-2 {% if '-' in prediction.change_percent %}text-danger{% else %}text-success{% endif %}">
-                                        {{ prediction.change_percent }}
+                                    <span class="prediction-price">{{ prediction.sentiment_prediction.predicted_price }}</span>
+                                    <span class="change-percent ms-2 {% if '-' in prediction.sentiment_prediction.change_percent %}text-danger{% else %}text-success{% endif %}">
+                                        {{ prediction.sentiment_prediction.change_percent }}
                                     </span>
                                 </p>
                                 <p><strong>Sentiment Signal:</strong>
@@ -69,34 +70,83 @@
                                     <div class="progress bg-secondary" style="height: 25px;">
                                         <div class="progress-bar bg-success" 
                                              role="progressbar" 
-                                             style="width: {{ prediction.confidence }}%;" 
-                                             aria-valuenow="{{ prediction.confidence }}" 
+                                             style="width: {{ prediction.sentiment_prediction.confidence }}%;" 
+                                             aria-valuenow="{{ prediction.sentiment_prediction.confidence }}" 
                                              aria-valuemin="0" 
                                              aria-valuemax="100">
-                                            {{ prediction.confidence }}%
+                                            {{ prediction.sentiment_prediction.confidence }}%
                                         </div>
                                     </div>
                                 </p>
-                                <p class="mt-3"><strong>Prediction Date:</strong> {{ prediction.date }}</p>
+                                <p class="mt-3"><strong>Prediction Date:</strong> {{ prediction.sentiment_prediction.date }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Neural Network Prediction -->
+                {% if prediction.nn_prediction %}
+                <div class="card bg-dark text-white">
+                    <div class="card-body p-4">
+                        <h3 class="mb-4">Neural Network Prediction</h3>
+                        <div class="row">
+                            <div class="col-md-6 text-start">
+                                <h5>Model Performance Metrics</h5>
+                                <p><strong>Training RMSE:</strong> {{ prediction.nn_prediction.metrics.train_rmse }}</p>
+                                <p><strong>Validation RMSE:</strong> {{ prediction.nn_prediction.metrics.val_rmse }}</p>
+                                <p><strong>Training MAE:</strong> {{ prediction.nn_prediction.metrics.train_mae }}</p>
+                                <p><strong>Validation MAE:</strong> {{ prediction.nn_prediction.metrics.val_mae }}</p>
                             </div>
                         </div>
 
-                        {% if prediction.recent_news %}
                         <div class="mt-4">
-                            <h4 class="mb-3">Recent News Analysis</h4>
-                            <div class="news-container">
-                                {% for news in prediction.recent_news %}
-                                <div class="news-item mb-3 p-3 rounded" style="background: rgba(255,255,255,0.05);">
-                                    <h5 class="mb-2">{{ news.title }}</h5>
-                                    <p class="mb-1 text-muted">{{ news.published_date|date:"F j, Y" }}</p>
-                                    <p class="mb-0">{{ news.content|truncatewords:50 }}</p>
-                                </div>
-                                {% endfor %}
+                            <h4>Model Visualization</h4>
+                            <img src="data:image/png;base64,{{ prediction.nn_prediction.plots }}" 
+                                 alt="Neural Network Predictions Plot" 
+                                 class="img-fluid rounded shadow-sm">
+                        </div>
+
+                        <div class="mt-4">
+                            <h4>Price Predictions</h4>
+                            <div class="table-responsive">
+                                <table class="table table-dark table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Predicted Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for pred in prediction.nn_prediction.predictions %}
+                                        <tr>
+                                            <td>{{ pred.date }}</td>
+                                            <td>{{ pred.price }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
+
+                {% if prediction.recent_news %}
+                <div class="card bg-dark text-white mt-4">
+                    <div class="card-body p-4">
+                        <h4 class="mb-3">Recent News Analysis</h4>
+                        <div class="news-container">
+                            {% for news in prediction.recent_news %}
+                            <div class="news-item mb-3 p-3 rounded" style="background: rgba(255,255,255,0.05);">
+                                <h5 class="mb-2">{{ news.title }}</h5>
+                                <p class="mb-1 text-muted">{{ news.published_date|date:"F j, Y" }}</p>
+                                <p class="mb-0">{{ news.content|truncatewords:50 }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
         </div>

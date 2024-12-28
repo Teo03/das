@@ -10,33 +10,31 @@ WORKDIR /app
 
 ENV DEBUG=False
 
-# Install system dependencies
+# Install system dependencies, TA-Lib, and Miniconda
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        chromium \
-        chromium-driver \
         build-essential \
-        chromium-l10n \
-        fonts-liberation \
-        libasound2 \
-        libatk-bridge2.0-0 \
-        libatk1.0-0 \
-        libatspi2.0-0 \
-        libcups2 \
-        libdbus-1-3 \
-        libdrm2 \
-        libgbm1 \
-        libgtk-3-0 \
-        libnspr4 \
-        libnss3 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxfixes3 \
-        libxrandr2 \
-        xdg-utils \
         libxml2-dev \
         libxslt-dev \
-    && rm -rf /var/lib/apt/lists/*
+        wget \
+        curl \
+        ca-certificates \
+    && wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+    && tar -xvzf ta-lib-0.4.0-src.tar.gz \
+    && cd ta-lib/ \
+    && ./configure --prefix=/usr \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz \
+    && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh \
+    && bash miniconda.sh -b -p /opt/conda \
+    && rm miniconda.sh \
+    && /opt/conda/bin/conda install -y -c conda-forge ta-lib \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /opt/conda/pkgs/*
+
+ENV LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
 
 # Create and switch to non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app
@@ -44,8 +42,7 @@ USER appuser
 
 # Install Python dependencies
 COPY --chown=appuser:appuser requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt \
-    && pip install --user --no-cache-dir gunicorn dj-database-url psycopg2-binary
+RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY --chown=appuser:appuser . .
