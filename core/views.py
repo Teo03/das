@@ -2,12 +2,13 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
-from .models import Issuer, StockPrice
+from .models import Issuer, StockPrice, IssuerNews
 import json
 from datetime import datetime
 import numpy as np
 import pandas as pd
 from .technical_analysis import calculate_technical_indicators, generate_signals, get_consensus_signal
+from .sentiment_analysis import get_news_sentiment_signal
 
 def home(request):
     return render(request, 'core/home.html')
@@ -199,9 +200,20 @@ def predict_view(request):
         if latest_price:
             current_price = float(latest_price.last_trade_price)
             
-            predicted_change = np.random.uniform(-0.1, 0.15)
+            # Get news sentiment signal
+            sentiment_signal, sentiment_confidence = get_news_sentiment_signal(issuer_code)
+            
+            # Adjust prediction based on sentiment
+            if sentiment_signal == 'BUY':
+                predicted_change = np.random.uniform(0.02, 0.15)  # Positive bias
+            elif sentiment_signal == 'SELL':
+                predicted_change = np.random.uniform(-0.15, -0.02)  # Negative bias
+            else:
+                predicted_change = np.random.uniform(-0.1, 0.15)  # Neutral
+                
             predicted_price = current_price * (1 + predicted_change)
             
+            # Get recent price volatility
             last_month_prices = StockPrice.objects.filter(
                 issuer=issuer,
                 date__gte=datetime.now().date() - timedelta(days=30)
@@ -209,9 +221,16 @@ def predict_view(request):
             
             if last_month_prices:
                 price_volatility = np.std([float(p) for p in last_month_prices]) / np.mean([float(p) for p in last_month_prices])
-                confidence = max(70, min(95, 90 - price_volatility * 100))
+                # Combine technical confidence with sentiment confidence
+                confidence = max(70, min(95, (90 - price_volatility * 100) * 0.6 + sentiment_confidence * 0.4))
             else:
-                confidence = 75.0
+                confidence = sentiment_confidence
+            
+            # Get recent news for display
+            recent_news = IssuerNews.objects.filter(
+                issuer=issuer,
+                published_date__gte=datetime.now() - timedelta(days=30)
+            ).order_by('-published_date')[:5]
             
             prediction = {
                 'stock': issuer.name,
@@ -220,6 +239,8 @@ def predict_view(request):
                 'change_percent': f"{predicted_change * 100:+.1f}%",
                 'confidence': f"{confidence:.1f}",
                 'date': (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d'),
+                'sentiment_signal': sentiment_signal,
+                'recent_news': recent_news
             }
             
             context['prediction'] = prediction

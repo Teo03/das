@@ -55,6 +55,14 @@
                                         {{ prediction.change_percent }}
                                     </span>
                                 </p>
+                                <p><strong>Sentiment Signal:</strong>
+                                    <span class="sentiment-signal ms-2 
+                                        {% if prediction.sentiment_signal == 'BUY' %}text-success
+                                        {% elif prediction.sentiment_signal == 'SELL' %}text-danger
+                                        {% else %}text-warning{% endif %}">
+                                        {{ prediction.sentiment_signal }}
+                                    </span>
+                                </p>
                             </div>
                             <div class="col-md-6 text-start">
                                 <p><strong>Confidence Level:</strong> 
@@ -72,6 +80,21 @@
                                 <p class="mt-3"><strong>Prediction Date:</strong> {{ prediction.date }}</p>
                             </div>
                         </div>
+
+                        {% if prediction.recent_news %}
+                        <div class="mt-4">
+                            <h4 class="mb-3">Recent News Analysis</h4>
+                            <div class="news-container">
+                                {% for news in prediction.recent_news %}
+                                <div class="news-item mb-3 p-3 rounded" style="background: rgba(255,255,255,0.05);">
+                                    <h5 class="mb-2">{{ news.title }}</h5>
+                                    <p class="mb-1 text-muted">{{ news.published_date|date:"F j, Y" }}</p>
+                                    <p class="mb-0">{{ news.content|truncatewords:50 }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -98,6 +121,36 @@
     }
     .prediction-result {
         animation: fadeIn 0.5s ease-in;
+    }
+    .sentiment-signal {
+        font-weight: bold;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+    }
+    .news-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+    .news-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    .news-container::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+    }
+    .news-container::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 4px;
+    }
+    .news-container::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    .news-item {
+        transition: all 0.3s ease;
+    }
+    .news-item:hover {
+        background: rgba(255,255,255,0.1) !important;
     }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(20px); }
