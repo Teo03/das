@@ -61,27 +61,43 @@
                         <h5 class="card-title">Technical Analysis</h5>
                         <ul class="nav nav-tabs" id="technicalTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="daily-tab" data-bs-toggle="tab" data-bs-target="#daily" type="button" role="tab">Daily (1)</button>
+                                <button class="nav-link active text-white" id="daily-tab" data-bs-toggle="tab" data-bs-target="#daily" type="button" role="tab">Daily (1)</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="weekly-tab" data-bs-toggle="tab" data-bs-target="#weekly" type="button" role="tab">Weekly (5)</button>
+                                <button class="nav-link text-white" id="weekly-tab" data-bs-toggle="tab" data-bs-target="#weekly" type="button" role="tab">Weekly (5)</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">Monthly (20)</button>
+                                <button class="nav-link text-white" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">Monthly (20)</button>
                             </li>
                         </ul>
+                        <style>
+                            .nav-tabs .nav-link {
+                                background-color: rgba(255, 255, 255, 0.1);
+                                border: 1px solid rgba(255, 255, 255, 0.2);
+                                margin-right: 5px;
+                            }
+                            .nav-tabs .nav-link:hover {
+                                border-color: rgba(255, 255, 255, 0.3);
+                                background-color: rgba(255, 255, 255, 0.15);
+                            }
+                            .nav-tabs .nav-link.active {
+                                background-color: rgba(255, 255, 255, 0.2);
+                                border-color: rgba(255, 255, 255, 0.4);
+                                border-bottom-color: transparent;
+                            }
+                        </style>
                         <div class="tab-content mt-3" id="technicalTabContent">
                             <div class="tab-pane fade show active" id="daily" role="tabpanel">
                                 <div class="row">
                                     <div class="col-md-6">
                                         <h6>Moving Averages</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="maChart1"></canvas>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <h6>Oscillators</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="oscillatorChart1"></canvas>
                                         </div>
                                     </div>
@@ -91,13 +107,13 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <h6>Moving Averages</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="maChart5"></canvas>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <h6>Oscillators</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="oscillatorChart5"></canvas>
                                         </div>
                                     </div>
@@ -107,13 +123,13 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <h6>Moving Averages</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="maChart20"></canvas>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <h6>Oscillators</h6>
-                                        <div style="height: 300px;">
+                                        <div style="height: 300px; background: white; padding: 10px; border-radius: 8px;">
                                             <canvas id="oscillatorChart20"></canvas>
                                         </div>
                                     </div>
@@ -130,7 +146,7 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Price History</h5>
-                        <div style="height: 400px;">
+                        <div style="height: 400px; background: white; padding: 10px; border-radius: 8px;">
                             <canvas id="priceChart"></canvas>
                         </div>
                     </div>
@@ -140,7 +156,7 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Volume History</h5>
-                        <div style="height: 400px;">
+                        <div style="height: 400px; background: white; padding: 10px; border-radius: 8px;">
                             <canvas id="volumeChart"></canvas>
                         </div>
                     </div>
@@ -150,7 +166,7 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Price Range (High/Low/Avg)</h5>
-                        <div style="height: 400px;">
+                        <div style="height: 400px; background: white; padding: 10px; border-radius: 8px;">
                             <canvas id="priceRangeChart"></canvas>
                         </div>
                     </div>
@@ -160,7 +176,7 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Daily Price Change %</h5>
-                        <div style="height: 400px;">
+                        <div style="height: 400px; background: white; padding: 10px; border-radius: 8px;">
                             <canvas id="priceChangeChart"></canvas>
                         </div>
                     </div>

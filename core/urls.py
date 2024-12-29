@@ -8,4 +8,5 @@ urlpatterns = [
     path('api/stock-data/<str:symbol>/', views.stock_data, name='stock_data'),
     path('predict/', views.predict_view, name='predict'),
     path('about/', views.about, name='about'),
+    path('recommendations/', views.recommendations, name='recommendations'),
 ] 

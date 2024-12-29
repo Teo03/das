@@ -126,6 +126,10 @@
                            href="{% url 'predict' %}">Predict AI</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'recommendations' %}active{% endif %}" 
+                           href="{% url 'recommendations' %}">Top Picks</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}" 
                            href="{% url 'about' %}">About MSE</a>
                     </li>

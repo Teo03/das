@@ -20,13 +20,20 @@
 
             <div class="row justify-content-center mt-5">
                 <div class="col-md-8">
+                    <div class="search-container mb-4">
+                        <div class="search-box">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search by company or symbol...">
+                            <div id="searchResults" class="search-results"></div>
+                        </div>
+                    </div>
+                    
                     <form id="predictionForm" method="POST" class="mt-4">
                         {% csrf_token %}
-                        <div class="mb-4">
+                        <div class="mb-4" style="display: none;">
                             <select name="stock" class="form-select form-select-lg mb-3" required>
                                 <option value="" selected disabled>Select a stock to predict</option>
                                 {% for stock in stocks %}
-                                <option value="{{ stock.code }}">{{ stock.name }} ({{ stock.code }})</option>
+                                <option value="{{ stock.code }}" data-name="{{ stock.name|lower }}">{{ stock.name }} ({{ stock.code }})</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -84,6 +91,23 @@
                     </div>
                 </div>
 
+                {% if prediction.recent_news %}
+                <div class="card bg-dark text-white mb-4">
+                    <div class="card-body p-4">
+                        <h4 class="mb-3">Recent News Analysis</h4>
+                        <div class="news-container">
+                            {% for news in prediction.recent_news %}
+                            <div class="news-item mb-3 p-3 rounded" style="background: rgba(255,255,255,0.05);">
+                                <h5 class="mb-2">{{ news.title }}</h5>
+                                <p class="mb-1 text-muted">{{ news.published_date|date:"F j, Y" }}</p>
+                                <p class="mb-0">{{ news.content|truncatewords:50 }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Neural Network Prediction -->
                 {% if prediction.nn_prediction %}
                 <div class="card bg-dark text-white">
@@ -126,23 +150,6 @@
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if prediction.recent_news %}
-                <div class="card bg-dark text-white mt-4">
-                    <div class="card-body p-4">
-                        <h4 class="mb-3">Recent News Analysis</h4>
-                        <div class="news-container">
-                            {% for news in prediction.recent_news %}
-                            <div class="news-item mb-3 p-3 rounded" style="background: rgba(255,255,255,0.05);">
-                                <h5 class="mb-2">{{ news.title }}</h5>
-                                <p class="mb-1 text-muted">{{ news.published_date|date:"F j, Y" }}</p>
-                                <p class="mb-0">{{ news.content|truncatewords:50 }}</p>
-                            </div>
-                            {% endfor %}
                         </div>
                     </div>
                 </div>
@@ -206,5 +213,173 @@
         from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    .search-container {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .search-box {
+        position: relative;
+        width: 100%;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(237, 196, 248, 0.2);
+        color: white !important;
+        font-size: 1.1rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .search-box input::placeholder {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: rgba(237, 196, 248, 0.4);
+        box-shadow: 0 0 15px rgba(237, 196, 248, 0.1);
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: rgba(49, 21, 60, 0.95);
+        border: 1px solid rgba(237, 196, 248, 0.2);
+        border-radius: 8px;
+        margin-top: 5px;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1000;
+        backdrop-filter: blur(10px);
+        display: none;
+    }
+
+    .search-results::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .search-results::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+    }
+
+    .search-results::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 4px;
+    }
+
+    .search-results::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    .search-result-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: white;
+        text-align: left;
+    }
+
+    .search-result-item:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .search-result-item .stock-code {
+        font-weight: bold;
+        color: #EDC4F8;
+    }
+
+    .search-result-item .stock-name {
+        font-size: 0.9em;
+        opacity: 0.8;
+    }
 </style>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const stockSelect = document.querySelector('select[name="stock"]');
+    const form = document.getElementById('predictionForm');
+    let selectedStock = null;
+
+    // Get all stocks data
+    const stocks = Array.from(stockSelect.options)
+        .filter(option => option.value) // Skip the placeholder option
+        .map(option => ({
+            code: option.value,
+            name: option.text,
+            searchText: (option.value + ' ' + option.text).toLowerCase()
+        }));
+
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        if (searchTerm.length < 1) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        // Filter stocks
+        const matches = stocks.filter(stock => 
+            stock.searchText.includes(searchTerm)
+        );
+
+        // Show results
+        if (matches.length > 0) {
+            searchResults.innerHTML = matches.map(stock => `
+                <div class="search-result-item" data-code="${stock.code}">
+                    <span class="stock-code">${stock.code}</span>
+                    <br>
+                    <span class="stock-name">${stock.name}</span>
+                </div>
+            `).join('');
+            searchResults.style.display = 'block';
+        } else {
+            searchResults.innerHTML = '<div class="search-result-item">No matches found</div>';
+            searchResults.style.display = 'block';
+        }
+    });
+
+    // Handle click on search result
+    searchResults.addEventListener('click', function(e) {
+        const item = e.target.closest('.search-result-item');
+        if (!item) return;
+
+        const stockCode = item.dataset.code;
+        if (!stockCode) return;
+
+        // Update the select and input
+        stockSelect.value = stockCode;
+        searchInput.value = item.textContent.trim();
+        searchResults.style.display = 'none';
+        selectedStock = stockCode;
+    });
+
+    // Hide results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        if (!selectedStock) {
+            e.preventDefault();
+            alert('Please select a stock from the search results');
+        }
+    });
+});
+</script>
+{% endblock %}
 {% endblock %}

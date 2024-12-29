@@ -1,0 +1,55 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Top Performing Stocks - MSE{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h1 class="display-3 mb-5 text-center" style="font-family: 'Cinzel', serif;">TOP 10 PERFORMING STOCKS</h1>
+
+            <div class="row">
+                {% for rec in recommendations %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 {% if rec.monthly_change > 0 %}border-success{% else %}border-danger{% endif %}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <a href="{% url 'stock_detail' rec.issuer.code %}" class="text-decoration-none">
+                                    {{ rec.issuer.code }} - {{ rec.issuer.name }}
+                                </a>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Latest Price:</strong><br>
+                                    {{ rec.latest_price.last_trade_price|floatformat:2 }} MKD
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'stock_detail' rec.issuer.code %}" class="btn btn-sm btn-primary">
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-5px);
+}
+.badge {
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %} 

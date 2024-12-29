@@ -279,3 +279,52 @@ def predict_view(request):
 
 def about(request):
     return render(request, 'core/about.html')
+
+def recommendations(request):
+    recommendations = []
+    
+    for issuer in Issuer.objects.all():
+        try:
+            latest_price = StockPrice.objects.filter(issuer=issuer).order_by('-date').first()
+            if not latest_price or not latest_price.last_trade_price:
+                continue
+                
+            # Get last month's first price for comparison
+            month_ago_price = StockPrice.objects.filter(
+                issuer=issuer,
+                date__lte=timezone.now() - timedelta(days=30)
+            ).order_by('-date').first()
+            
+            if not month_ago_price or not month_ago_price.last_trade_price:
+                continue
+                
+            # Convert to float and check for zero
+            latest_price_float = float(latest_price.last_trade_price)
+            month_ago_price_float = float(month_ago_price.last_trade_price)
+            
+            if month_ago_price_float == 0:
+                continue
+                
+            # Calculate monthly performance
+            monthly_change = ((latest_price_float - month_ago_price_float) / month_ago_price_float * 100)
+            
+            # Format volume with commas
+            volume = latest_price.volume if latest_price.volume else 0
+            formatted_volume = "{:,}".format(volume)
+            
+            recommendations.append({
+                'issuer': issuer,
+                'latest_price': latest_price,
+                'monthly_change': monthly_change,
+                'daily_change': float(latest_price.price_change) if latest_price.price_change else 0,
+                'volume': formatted_volume
+            })
+        except (ValueError, TypeError, ZeroDivisionError):
+            continue
+    
+    # Sort by monthly performance
+    recommendations.sort(key=lambda x: x['monthly_change'], reverse=True)
+    
+    return render(request, 'core/recommendations.html', {
+        'recommendations': recommendations[:10]  # Show only top 10
+    })
