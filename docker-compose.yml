@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres
+    container_name: das-db
+    environment:
+      - POSTGRES_DB=das
+      - POSTGRES_USER=das-db-user
+      - POSTGRES_PASSWORD=das-db-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U das-db-user -d das"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+    container_name: das-web
+    environment:
+      - DATABASE_URL=postgres://das-db-user:das-db-password@db:5432/das
+      - DEBUG=False
+    ports:
+      - "8000:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
+
+volumes:
+  postgres_data:
